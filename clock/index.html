@@ -1,68 +1,47 @@
-/**
- * 元科打卡｜Apps Script 載入器（只要貼一次、部署一次，之後不用再改）
- * App 本體放在雲端硬碟「元科_知識庫／12 系統程式」，拆成多個小檔：
- *   元科打卡_程式_01～07*.js     伺服器端程式（依檔名順序串接）
- *   元科打卡_畫面_01～04*.html   手機畫面（依檔名順序串接）
- * 同名檔案取「最後修改」的一份；Claude 更新雲端檔案後，最慢 2 分鐘生效。
- */
-const LOADER = {
-  FOLDER_ID: '1BcoE8MEbPz47MHaYt0yMPZXCmRmyuLm0',   // 元科_知識庫／12 系統程式
-  CODE_PREFIX: '元科打卡_程式_',
-  HTML_PREFIX: '元科打卡_畫面_',
-  CACHE_SEC: 120
-};
-
-function parts_(prefix) {
-  const cache = CacheService.getScriptCache();
-  const key = 'yk_' + Utilities.base64EncodeWebSafe(prefix);
-  const hit = cache.get(key);
-  if (hit) return hit;
-  const it = DriveApp.getFolderById(LOADER.FOLDER_ID).searchFiles("title contains '" + prefix + "' and trashed = false");
-  const pick = {};
-  while (it.hasNext()) {
-    const f = it.next(); const n = f.getName();
-    if (n.indexOf(prefix) !== 0) continue;
-    if (!pick[n] || f.getLastUpdated() > pick[n].getLastUpdated()) pick[n] = f;
-  }
-  const names = Object.keys(pick).sort();
-  if (!names.length) throw new Error('雲端找不到 ' + prefix + ' 開頭的檔案');
-  const text = names.map(n => pick[n].getBlob().getDataAsString('UTF-8')).join('');
-  if (text.length < 95000) cache.put(key, text, LOADER.CACHE_SEC);
-  return text;
-}
-let MOD_ = null;
-function mod_() {
-  if (MOD_) return MOD_;
-  const src = parts_(LOADER.CODE_PREFIX);
-  const names = [];
-  src.replace(/^function\s+([A-Za-z]\w*)\s*\(/gm, (m, n) => { if (!/_$/.test(n)) names.push(n); return m; });
-  MOD_ = new Function(src + '\n;return {' + names.join(',') + '};')();
-  return MOD_;
-}
-
-/* 網頁入口 */
-function doGet() {
-  return HtmlService.createHtmlOutput(parts_(LOADER.HTML_PREFIX))
-    .setTitle('元科打卡')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-}
-
-/* 畫面呼叫的唯一入口：只開放名稱不以 _ 結尾的函式 */
-function api(fn, args) {
-  const M = mod_();
-  if (typeof fn !== 'string' || /_$/.test(fn) || fn === 'setupProtect' || fn === 'doGet' || typeof M[fn] !== 'function') throw new Error('不支援的操作：' + fn);
-  return M[fn].apply(null, args || []);
-}
-
-/* 安裝後在編輯器手動執行一次：鎖定紀錄分頁 */
-function setupProtect() { return mod_().setupProtect(); }
-
-/* 更新雲端檔案後想立刻生效，可在編輯器執行一次 */
-function clearCache() { CacheService.getScriptCache().removeAll(['yk_' + Utilities.base64EncodeWebSafe(LOADER.CODE_PREFIX), 'yk_' + Utilities.base64EncodeWebSafe(LOADER.HTML_PREFIX)]); }
-
-/* 讓 Google 一次取得 App 需要的全部權限（不會被呼叫） */
-function permissions_() {
-  SpreadsheetApp.openById('x'); DriveApp.getRootFolder(); LockService.getScriptLock();
-  CacheService.getScriptCache(); Utilities.getUuid(); HtmlService.createHtmlOutput('');
-}
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>元科打卡</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="元科打卡">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0A2A2D">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<style>
+  html,body{margin:0;height:100%;background:#0A2A2D}
+  iframe{position:fixed;inset:0;width:100%;height:100%;border:0;background:#EDF1F0}
+  .boot{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#F2D48A;font-family:"Noto Sans TC","PingFang TC",sans-serif}
+  .boot img{width:104px;height:104px;border-radius:24px;background:#fff}
+</style>
+</head>
+<body>
+<div class="boot" id="boot"><img src="apple-touch-icon.png" alt=""><div>元科打卡 載入中…</div></div>
+<script>
+  const APP_URL = "https://script.google.com/macros/s/AKfycbw5JTATrRULrblHIgb1LbPf82igGIhVSW3208RsOGUgvCKfGpvLqNpMAuYGCFus9EWO/exec";
+  const f = document.createElement("iframe");
+  f.src = APP_URL;
+  f.allow = "camera; geolocation; clipboard-write";
+  f.onload = () => { const b = document.getElementById("boot"); if (b) b.remove(); };
+  document.body.appendChild(f);
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+  const KEY = "yk_clock_cred";
+  const APP_ORIGIN = /^https:\/\/[a-z0-9-]+\.googleusercontent\.com$/;
+  window.addEventListener("message", e => {
+    if (!APP_ORIGIN.test(e.origin) || !e.data) return;
+    if (e.data.ykGet) {
+      let c = null; try { c = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (err) {}
+      e.source.postMessage({ ykCred: c }, e.origin);
+    }
+    if ("ykSave" in e.data) {
+      try { if (e.data.ykSave) localStorage.setItem(KEY, JSON.stringify(e.data.ykSave)); else localStorage.removeItem(KEY); } catch (err) {}
+    }
+  });
+</script>
+</body>
+</html>
