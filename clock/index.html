@@ -16,18 +16,26 @@
 <style>
   html,body{margin:0;height:100%;background:#0A2A2D}
   iframe{position:fixed;inset:0;width:100%;height:100%;border:0;background:#EDF1F0}
-  .boot{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#F2D48A;font-family:"Noto Sans TC","PingFang TC",sans-serif}
-  .boot img{width:104px;height:104px;border-radius:24px;background:#fff}
+  .boot{position:fixed;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:#0A2A2D;font-family:"Noto Sans TC","PingFang TC",sans-serif;transition:opacity .4s}
+  .boot.gone{opacity:0;pointer-events:none}
+  .boot img{width:96px;height:96px;border-radius:22px;background:#fff}
+  .boot .ring{width:40px;height:40px;border:4px solid rgba(201,150,43,.22);border-top-color:#C9962B;border-radius:50%;animation:spin .9s linear infinite}
+  .boot .brand{font-size:20px;font-weight:700;color:#fff;letter-spacing:2px}
+  .boot .slogan{font-size:14px;color:#F2D48A;letter-spacing:1px}
+  .boot .msg{font-size:13px;color:#9FB3B5}
+  @keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
-<div class="boot" id="boot"><img src="apple-touch-icon.png" alt=""><div>元科打卡 載入中…</div></div>
+<div class="boot" id="boot"><img src="apple-touch-icon.png" alt=""><div class="brand">元科打卡</div><div class="slogan">元科工程｜整合拆除・清運回收</div><div class="ring" aria-hidden="true"></div><div class="msg">連線中，請稍候…</div></div>
 <script>
   const APP_URL = "https://script.google.com/macros/s/AKfycbw5JTATrRULrblHIgb1LbPf82igGIhVSW3208RsOGUgvCKfGpvLqNpMAuYGCFus9EWO/exec";
   const f = document.createElement("iframe");
   f.src = APP_URL;
   f.allow = "camera; geolocation; clipboard-write";
-  f.onload = () => { const b = document.getElementById("boot"); if (b) b.remove(); };
+  function hideBoot() { const b = document.getElementById("boot"); if (b) { b.classList.add("gone"); setTimeout(() => b.remove(), 450); } }
+  f.onload = () => setTimeout(hideBoot, 8000);   // 保險：最多 8 秒後收起
+
   document.body.appendChild(f);
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
   const KEY = "yk_clock_cred";
@@ -35,6 +43,7 @@
   window.addEventListener("message", e => {
     if (!APP_ORIGIN.test(e.origin) || !e.data) return;
     if (e.data.ykGet) {
+      hideBoot();   // App 已啟動，換成 App 自己的載入畫面
       let c = null; try { c = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (err) {}
       e.source.postMessage({ ykCred: c }, e.origin);
     }
